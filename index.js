@@ -1,4 +1,5 @@
 import gplay from 'google-play-scraper';
+import fs from 'fs';
 
 const appsMap = new Map();
 const detailedAppsMap = new Map();
@@ -41,19 +42,18 @@ const addAppsInPair = async ({ category, collection }) => {
   }
 };
 
-
-
-
-  const fetchAppDetailed = async (appId) => {
-    try {
-      const app = await gplay.app({ appId });
-        detailedAppsMap.set(appId, app);
-        console.log(`detailed app size ${detailedAppsMap.size}`);
-        
-    } catch (error) {
-      console.error(`Error fetching app details for appId: ${appId}`, error.message);
-    }
-  };
+const fetchAppDetailed = async (appId) => {
+  try {
+    const app = await gplay.app({ appId });
+    detailedAppsMap.set(appId, app);
+    console.log(`detailed app size ${detailedAppsMap.size}`);
+  } catch (error) {
+    console.error(
+      `Error fetching app details for appId: ${appId}`,
+      error.message
+    );
+  }
+};
 
 (async () => {
   const { categories, collections } = getAllCategoriesAndCollections();
@@ -63,18 +63,21 @@ const addAppsInPair = async ({ category, collection }) => {
     )
   );
 
-
   // run detail fetch
-    const appIds = Array.from(appsMap.keys());
-    console.log(`Total apps to fetch details: ${appIds.length}`);
-    for (const appId of appIds) {
-        await fetchAppDetailed(appId);
-    }
-
+  const appIds = Array.from(appsMap.keys());
+  console.log(`Total apps to fetch details: ${appIds.length}`);
+  for (const appId of appIds) {
+    const app = await fetchAppDetailed(appId);
+    detailedAppsMap.set(appId, app);
+  }
 
   console.log(`Total unique apps: ${appsMap.size}`);
-    console.log(`Total unique detailed apps: ${detailedAppsMap.size}`);
-})();
+  console.log(`Total unique detailed apps: ${detailedAppsMap.size}`);
 
+  fs.writeFileSync(
+    `./lists/${new Date().toLocaleDateString().replace(/\//g, '-')}-apps.json`,
+    JSON.stringify({ apps: Array.from(detailedAppsMap.values()) }, null, 2)
+  );
+})();
 
 // 19733 apps / seconds
