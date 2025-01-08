@@ -1,0 +1,16 @@
+{
+  "name": "fa-ac-runner",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "google-play-scraper": "^10.0.1"
+  }
+}
