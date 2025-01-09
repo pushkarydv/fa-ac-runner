@@ -1,6 +1,9 @@
 import gplay from 'google-play-scraper';
 import fs from 'fs';
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 const appsMap = new Map();
 const detailedAppsMap = new Map();
 
@@ -13,7 +16,7 @@ const getAllCategoriesAndCollections = () => {
 
   return { categories, collections };
 };
-
+      
 const addAppsInPair = async ({ category, collection }) => {
   try {
     const apps = await gplay.list({
@@ -65,10 +68,11 @@ const fetchAppDetailed = async (appId) => {
 
   // run detail fetch
   const appIds = Array.from(appsMap.keys());
-  console.log(`Total apps to fetch details: ${appIds.length}`);
-  for (const appId of appIds) {
-    const app = await fetchAppDetailed(appId);
-    detailedAppsMap.set(appId, app);
+  // console.log(`Total apps to fetch details: ${appIds.length}`);
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < appIds.length; i += BATCH_SIZE) {
+    const batch = appIds.slice(i, i + BATCH_SIZE);
+    await Promise.all(batch.map(fetchAppDetailed));
   }
 
   console.log(`Total unique apps: ${appsMap.size}`);
@@ -76,7 +80,7 @@ const fetchAppDetailed = async (appId) => {
 
   fs.writeFileSync(
     `./lists/${new Date().toLocaleDateString().replace(/\//g, '-')}-apps.json`,
-    JSON.stringify({ apps: Array.from(detailedAppsMap.values()) }, null, 2)
+    JSON.stringify(Object.fromEntries(detailedAppsMap), null, 2)
   );
 })();
 

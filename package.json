@@ -11,6 +11,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "google-play-scraper": "^10.0.1"
+    "@langchain/core": "^0.3.27",
+    "@langchain/groq": "^0.1.2",
+    "dotenv": "^16.4.7",
+    "google-play-scraper": "^10.0.1",
+    "zod": "^3.24.1"
   }
 }
