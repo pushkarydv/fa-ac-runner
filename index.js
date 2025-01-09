@@ -1,82 +1,99 @@
-import gplay from 'google-play-scraper';
 import fs from 'fs';
+import {
+  getAllCategoriesAndCollections,
+  getApps,
+  searchApps,
+} from './services/google-play.js';
 
 import dotenv from 'dotenv';
 dotenv.config();
 
 const appsMap = new Map();
-const detailedAppsMap = new Map();
-
-const getAllCategoriesAndCollections = () => {
-  const categories = Object.keys(gplay.category);
-  const collections = Object.keys(gplay.collection);
-  console.log(
-    `${categories.length} categories and ${collections.length} collections each`
-  );
-
-  return { categories, collections };
-};
+const termMatchMap = new Map();
+const similarAppsMap = new Map();
+const fuzzyNameMap = new Map();
 
 const addAppsInPair = async ({ category, collection }) => {
-  try {
-    const apps = await gplay.list({
-      category: gplay.category[category],
-      collection: gplay.collection[collection],
-      num: 200,
-      country: 'in',
-    });
+  const apps = await getApps({ category, collection });
 
-    console.log(
-      `Fetched ${apps.length} apps for category: ${category}, collection: ${collection}`
-    );
-
-    apps.forEach((app) => {
-      if (!appsMap.has(app.appId)) {
-        appsMap.set(app.appId, app);
-      }
-    });
-
-    console.log(`Total unique apps now: ${appsMap.size}`);
-  } catch (error) {
-    console.error(
-      `Error fetching apps for category: ${category}, collection: ${collection}`,
-      error.message
-    );
-  }
-};
-
-const fetchAppDetailed = async (appId) => {
-  try {
-    const app = await gplay.app({ appId });
-    detailedAppsMap.set(appId, app);
-    console.log(`detailed app size ${detailedAppsMap.size}`);
-  } catch (error) {
-    console.error(
-      `Error fetching app details for appId: ${appId}`,
-      error.message
-    );
-  }
+  apps.forEach((app) => {
+    if (!appsMap.has(app.appId)) {
+      appsMap.set(app.appId, app);
+    }
+  });
 };
 
 (async () => {
   const { categories, collections } = getAllCategoriesAndCollections();
+  console.log(categories, collections);
+
   await Promise.all(
     categories.flatMap((category) =>
       collections.map((collection) => addAppsInPair({ category, collection }))
     )
   );
 
-  // run detail fetch
-  const appIds = Array.from(appsMap.keys());
-  // console.log(`Total apps to fetch details: ${appIds.length}`);
-  const BATCH_SIZE = 10;
-  for (let i = 0; i < appIds.length; i += BATCH_SIZE) {
-    const batch = appIds.slice(i, i + BATCH_SIZE);
-    await Promise.all(batch.map(fetchAppDetailed));
+  console.log(`size of appsMap: ${appsMap.size}`);
+
+  const batchSize = 10;
+  const appEntries = Array.from(appsMap.entries());
+
+  for (let i = 0; i < appEntries.length; i += batchSize) {
+    const batch = appEntries.slice(i, i + batchSize);
+
+    await Promise.all(
+      batch.map(async ([appId, app]) => {
+        const { title } = app;
+        const searchResults = await searchApps(title);
+
+        searchResults.forEach((result) => {
+          if (!appsMap.has(result.appId) || !termMatchMap.has(result.appId)) {
+            termMatchMap.set(result.appId, {
+              ...result,
+              gotFrom: appId,
+            });
+          }
+        });
+      })
+    );
   }
 
-  console.log(`Total unique apps: ${appsMap.size}`);
-  console.log(`Total unique detailed apps: ${detailedAppsMap.size}`);
+  console.log(`size of termMatchMap: ${termMatchMap.size}`);
+  
+
+  // run a getSimilarApps on appsMap and termMatchMap after that add to similarAppsMap
+
+  const allAppIds = new Set([
+    ...Array.from(appsMap.keys()),
+    ...Array.from(termMatchMap.keys()),
+  ]);
+
+  const similarAppIds = Array.from(allAppIds);
+ 
+
+  for (let i = 0; i < similarAppIds.length; i += batchSize) {
+    const batch = similarAppIds.slice(i, i + batchSize);
+
+    await Promise.all(
+      batch.map(async (appId) => {
+        const similarApps = await getSimilarApps(appId);
+        similarApps.forEach((app) => {
+          if (!appsMap.has(app.appId) || !termMatchMap.has(app.appId) || !similarAppsMap.has(app.appId)) {
+            similarAppsMap.set(app.appId, app);
+          }
+        });
+      })
+    );
+  }
+
+  console.log(`size of similarAppsMap: ${similarAppsMap.size}`);
+
+  const jsonResult = {
+    apps: Object.fromEntries(appsMap),
+    termMatch: Object.fromEntries(termMatchMap),
+    similarApps: Object.fromEntries(similarAppsMap),
+  };
+  
 
   const date = new Date();
   const formattedDate = `${(date.getMonth() + 1)
@@ -88,8 +105,6 @@ const fetchAppDetailed = async (appId) => {
 
   fs.writeFileSync(
     `./lists/${formattedDate}-apps.json`,
-    JSON.stringify(Object.fromEntries(detailedAppsMap), null, 2)
+    JSON.stringify(jsonResult, null, 2)
   );
 })();
-
-// 19733 apps / seconds
