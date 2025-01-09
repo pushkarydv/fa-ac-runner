@@ -16,7 +16,7 @@ const getAllCategoriesAndCollections = () => {
 
   return { categories, collections };
 };
-      
+
 const addAppsInPair = async ({ category, collection }) => {
   try {
     const apps = await gplay.list({
@@ -78,8 +78,16 @@ const fetchAppDetailed = async (appId) => {
   console.log(`Total unique apps: ${appsMap.size}`);
   console.log(`Total unique detailed apps: ${detailedAppsMap.size}`);
 
+  const date = new Date();
+  const formattedDate = `${(date.getMonth() + 1)
+    .toString()
+    .padStart(2, '0')}-${date
+    .getDate()
+    .toString()
+    .padStart(2, '0')}-${date.getFullYear()}`;
+
   fs.writeFileSync(
-    `./lists/${new Date().toLocaleDateString().replace(/\//g, '-')}-apps.json`,
+    `./lists/${formattedDate}-apps.json`,
     JSON.stringify(Object.fromEntries(detailedAppsMap), null, 2)
   );
 })();
