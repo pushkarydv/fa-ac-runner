@@ -2,6 +2,7 @@ import fs from 'fs';
 import {
   getAllCategoriesAndCollections,
   getApps,
+  getSimilarApps,
   searchApps,
 } from './services/google-play.js';
 
@@ -35,7 +36,7 @@ const addAppsInPair = async ({ category, collection }) => {
 
   console.log(`size of appsMap: ${appsMap.size}`);
 
-  const batchSize = 10;
+  const batchSize = 50;
   const appEntries = Array.from(appsMap.entries());
 
   for (let i = 0; i < appEntries.length; i += batchSize) {
